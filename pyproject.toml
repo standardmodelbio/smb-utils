@@ -12,6 +12,10 @@ dependencies = [
     "boto3",
     "packaging",
     "python-dotenv",
+    "monai[all]>=1.5.0",
+    "nibabel>=5.3.0",
+    "pydicom>=2.4.0",
+    "transformers>=4.51.0",
 ]
 readme = "README.md"
 requires-python = ">= 3.10"
@@ -34,17 +38,6 @@ Homepage = "https://github.com/standardmodelbio/smb-utils/tree/main"
 Repository = "https://github.com/standardmodelbio/smb-utils.git"
 Issues = "https://github.com/standardmodelbio/smb-utils/issues"
 
-[project.optional-dependencies]
-decord = [
-    "decord",
-]
-imaging = [
-    "monai[all]>=1.5.0",
-    "nibabel>=5.3.0",
-    "pydicom>=2.4.0",
-    "transformers>=4.51.0",
-]
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -65,7 +58,9 @@ allow-direct-references = true
 packages = ["src/smb_utils"]
 
 [tool.ruff]
-line-length = 119
+target-version = "py312"
+line-length = 79
+indent-width = 4
 
 [tool.ruff.lint]
 ignore = ["C408", "C901", "E501", "E731", "E741", "W605"]

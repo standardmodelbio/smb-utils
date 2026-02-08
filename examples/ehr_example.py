@@ -123,7 +123,11 @@ def example_time_bins():
         code_column="code",
         category_column="table",
         end_time=pd.Timestamp("2024-01-31"),
-        time_bins=[(30, 15), (15, 7), (7, 0)],  # 30-15 days, 15-7 days, 7-0 days
+        time_bins=[
+            (30, 15),
+            (15, 7),
+            (7, 0),
+        ],  # 30-15 days, 15-7 days, 7-0 days
     )
 
     print(text)
@@ -195,7 +199,9 @@ def example_with_imaging():
 
     # Add imaging path column - CT scan done during procedure visit
     df["img_path"] = None
-    df.loc[df["code"] == "Annual Wellness Visit", "img_path"] = "/data/scans/ct_001.nii.gz"
+    df.loc[df["code"] == "Annual Wellness Visit", "img_path"] = (
+        "/data/scans/ct_001.nii.gz"
+    )
 
     result = process_ehr_info(
         df,

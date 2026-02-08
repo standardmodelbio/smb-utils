@@ -58,7 +58,9 @@ DEFAULT_CATEGORY_MAPPING: dict[str, list[str]] = {
 }
 
 
-def _build_reverse_mapping(category_mapping: dict[str, list[str]]) -> dict[str, str]:
+def _build_reverse_mapping(
+    category_mapping: dict[str, list[str]],
+) -> dict[str, str]:
     """Build reverse mapping from category values to group names."""
     reverse = {}
     for group, values in category_mapping.items():
@@ -115,7 +117,9 @@ def _format_code_events(
 
     for code, group in events_df.groupby(code_column, sort=False):
         # Count images associated with this code
-        num_images = _count_images_in_group(group) if include_image_tokens else 0
+        num_images = (
+            _count_images_in_group(group) if include_image_tokens else 0
+        )
 
         # Special handling for birth
         if "birth" in str(code).lower():
@@ -192,7 +196,13 @@ def format_events_chronological(
 
     # No category column - format all events together
     if category_column is None or category_column not in events_df.columns:
-        lines = _format_code_events(events_df, code_column, max_values_per_code, include_image_tokens, image_token)
+        lines = _format_code_events(
+            events_df,
+            code_column,
+            max_values_per_code,
+            include_image_tokens,
+            image_token,
+        )
         return "\n".join(lines)
 
     # With category column but no mapping - group by unique category values
@@ -200,7 +210,13 @@ def format_events_chronological(
         formatted_parts: list[str] = []
         for category_val in events_df[category_column].unique():
             cat_df = events_df[events_df[category_column] == category_val]
-            lines = _format_code_events(cat_df, code_column, max_values_per_code, include_image_tokens, image_token)
+            lines = _format_code_events(
+                cat_df,
+                code_column,
+                max_values_per_code,
+                include_image_tokens,
+                image_token,
+            )
             if lines:
                 formatted_parts.append("\n".join(lines))
         return "\n".join(formatted_parts)
@@ -213,7 +229,13 @@ def format_events_chronological(
         if group_df.empty:
             continue
 
-        lines = _format_code_events(group_df, code_column, max_values_per_code, include_image_tokens, image_token)
+        lines = _format_code_events(
+            group_df,
+            code_column,
+            max_values_per_code,
+            include_image_tokens,
+            image_token,
+        )
         if lines:
             output_parts[group_name] = lines
 
@@ -347,7 +369,9 @@ def format_patient_history(
         return ""
 
     # Determine if category column exists
-    has_category = category_column is not None and category_column in patient_df.columns
+    has_category = (
+        category_column is not None and category_column in patient_df.columns
+    )
 
     # Set defaults
     if demographics_values is None:
@@ -380,7 +404,9 @@ def format_patient_history(
 
     # Add demographics first if requested and category column exists
     if include_demographics and has_category:
-        person_rows = filtered_df[filtered_df[category_column].isin(demographics_values)]
+        person_rows = filtered_df[
+            filtered_df[category_column].isin(demographics_values)
+        ]
         if not person_rows.empty:
             demographics_str = format_events_chronological(
                 person_rows,
@@ -393,7 +419,9 @@ def format_patient_history(
             if demographics_str:
                 output_parts.append(demographics_str)
         # Remove demographics from main timeline
-        filtered_df = filtered_df[~filtered_df[category_column].isin(demographics_values)]
+        filtered_df = filtered_df[
+            ~filtered_df[category_column].isin(demographics_values)
+        ]
 
     if filtered_df.empty:
         return "\n\n".join(output_parts)
@@ -410,7 +438,10 @@ def format_patient_history(
             bin_start_time = end_time - pd.Timedelta(days=days_back_start)
             bin_end_time = end_time - pd.Timedelta(days=days_back_end)
 
-            bin_df = filtered_df[(filtered_df["time"] > bin_start_time) & (filtered_df["time"] <= bin_end_time)]
+            bin_df = filtered_df[
+                (filtered_df["time"] > bin_start_time)
+                & (filtered_df["time"] <= bin_end_time)
+            ]
 
             if not bin_df.empty:
                 bin_label = f"{bin_start_time.strftime('%Y-%m-%d')} - {bin_end_time.strftime('%Y-%m-%d')}"

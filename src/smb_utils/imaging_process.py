@@ -50,7 +50,9 @@ PET_DEFAULT_B_MAX = 1.0
 XRAY_DEFAULT_SPATIAL_SIZE = (768, 768, -1)
 XRAY_DEFAULT_PIXDIM = (0.5, 0.5, -1.0)  # High res in plane
 XRAY_DEFAULT_A_MIN = 0.0
-XRAY_DEFAULT_A_MAX = 255.0  # Assuming 8-bit usually, but handled dynamically preferred
+XRAY_DEFAULT_A_MAX = (
+    255.0  # Assuming 8-bit usually, but handled dynamically preferred
+)
 XRAY_DEFAULT_B_MIN = 0.0
 XRAY_DEFAULT_B_MAX = 1.0
 
@@ -109,7 +111,14 @@ def _get_base_transforms(
     #     transforms_list.append(t.Orientationd(keys=["image"], axcodes="RAS"))
 
     if pixdim:
-        transforms_list.append(t.Spacingd(keys=["image"], pixdim=pixdim, mode=("bilinear"), min_pixdim=pixdim))
+        transforms_list.append(
+            t.Spacingd(
+                keys=["image"],
+                pixdim=pixdim,
+                mode=("bilinear"),
+                min_pixdim=pixdim,
+            )
+        )
 
     # Add specific intensity transform
     if intensity_transform:
@@ -117,9 +126,15 @@ def _get_base_transforms(
 
     # Spatial sizing
     if resize_mode == "crop":
-        transforms_list.append(t.CenterSpatialCropd(keys=["image"], roi_size=list(spatial_size)))
+        transforms_list.append(
+            t.CenterSpatialCropd(keys=["image"], roi_size=list(spatial_size))
+        )
     elif resize_mode == "resize":
-        transforms_list.append(t.ResizeWithPadOrCropd(keys=["image"], spatial_size=list(spatial_size)))
+        transforms_list.append(
+            t.ResizeWithPadOrCropd(
+                keys=["image"], spatial_size=list(spatial_size)
+            )
+        )
 
     transforms_list.append(t.DivisiblePadd(keys=["image"], k=patch_size * 2))
     transforms_list.append(t.ToTensord(keys=["image"], track_meta=False))
@@ -147,7 +162,12 @@ def get_ct_transforms(
         spatial_size=spatial_size,
         patch_size=patch_size,
         intensity_transform=t.ScaleIntensityRanged(
-            keys=["image"], a_min=a_min, a_max=a_max, b_min=b_min, b_max=b_max, clip=True
+            keys=["image"],
+            a_min=a_min,
+            a_max=a_max,
+            b_min=b_min,
+            b_max=b_max,
+            clip=True,
         ),
         pixdim=pixdim,
         use_3d_orientation=True,
@@ -203,7 +223,12 @@ def get_pet_transforms(
         spatial_size=spatial_size,
         patch_size=patch_size,
         intensity_transform=t.ScaleIntensityRanged(
-            keys=["image"], a_min=a_min, a_max=a_max, b_min=b_min, b_max=b_max, clip=True
+            keys=["image"],
+            a_min=a_min,
+            a_max=a_max,
+            b_min=b_min,
+            b_max=b_max,
+            clip=True,
         ),
         pixdim=pixdim,
         use_3d_orientation=True,
@@ -213,8 +238,12 @@ def get_pet_transforms(
 
 
 def get_xray_transforms(
-    spatial_size: tuple[int, int] = XRAY_DEFAULT_SPATIAL_SIZE,  # Changed to 2-tuple for XRAY
-    pixdim: tuple[float, float] = XRAY_DEFAULT_PIXDIM,  # Changed to 2-tuple for XRAY
+    spatial_size: tuple[
+        int, int
+    ] = XRAY_DEFAULT_SPATIAL_SIZE,  # Changed to 2-tuple for XRAY
+    pixdim: tuple[
+        float, float
+    ] = XRAY_DEFAULT_PIXDIM,  # Changed to 2-tuple for XRAY
     patch_size: int = PATCH_SIZE,
     a_min: float = XRAY_DEFAULT_A_MIN,
     a_max: float = XRAY_DEFAULT_A_MAX,
@@ -228,7 +257,12 @@ def get_xray_transforms(
         spatial_size=spatial_size,
         patch_size=patch_size,
         intensity_transform=t.ScaleIntensityRanged(
-            keys=["image"], a_min=a_min, a_max=a_max, b_min=b_min, b_max=b_max, clip=True
+            keys=["image"],
+            a_min=a_min,
+            a_max=a_max,
+            b_min=b_min,
+            b_max=b_max,
+            clip=True,
         ),
         pixdim=pixdim,
         # X-rays are often 2D so we skip 3D orientation/resampling to avoid errors
@@ -241,8 +275,12 @@ def get_xray_transforms(
 
 
 def get_ultrasound_transforms(
-    spatial_size: tuple[int, int] = US_DEFAULT_SPATIAL_SIZE,  # Changed to 2-tuple for US
-    pixdim: tuple[float, float] = US_DEFAULT_PIXDIM,  # Changed to 2-tuple for US
+    spatial_size: tuple[
+        int, int
+    ] = US_DEFAULT_SPATIAL_SIZE,  # Changed to 2-tuple for US
+    pixdim: tuple[
+        float, float
+    ] = US_DEFAULT_PIXDIM,  # Changed to 2-tuple for US
     patch_size: int = PATCH_SIZE,
     a_min: float = US_DEFAULT_A_MIN,
     a_max: float = US_DEFAULT_A_MAX,
@@ -338,7 +376,16 @@ _MODALITY_CONFIGS = {
         CT_DEFAULT_B_MAX,
         True,
     ),
-    "MRI": (get_mri_transforms, MRI_DEFAULT_SPATIAL_SIZE, MRI_DEFAULT_PIXDIM, None, None, None, None, False),
+    "MRI": (
+        get_mri_transforms,
+        MRI_DEFAULT_SPATIAL_SIZE,
+        MRI_DEFAULT_PIXDIM,
+        None,
+        None,
+        None,
+        None,
+        False,
+    ),
     "PET": (
         get_pet_transforms,
         PET_DEFAULT_SPATIAL_SIZE,
@@ -430,17 +477,27 @@ def preprocess_image(
         b_min = b_min if b_min is not None else default_b_min
         b_max = b_max if b_max is not None else default_b_max
         transforms = transform_fn(
-            spatial_size=spatial_size, pixdim=pixdim, a_min=a_min, a_max=a_max, b_min=b_min, b_max=b_max, reader=reader
+            spatial_size=spatial_size,
+            pixdim=pixdim,
+            a_min=a_min,
+            a_max=a_max,
+            b_min=b_min,
+            b_max=b_max,
+            reader=reader,
         )
     else:
         # MRI uses percentile-based scaling, not intensity range
-        transforms = transform_fn(spatial_size=spatial_size, pixdim=pixdim, reader=reader)
+        transforms = transform_fn(
+            spatial_size=spatial_size, pixdim=pixdim, reader=reader
+        )
 
     data_dict = {"image": image_path}
     transformed = transforms(data_dict)
     volume_dc_hw = transformed["image"]  # (C, D, H, W)
     if volume_dc_hw.dim() != 4:
-        raise ValueError(f"Expected 4D tensor (C, D, H, W), got shape {tuple(volume_dc_hw.shape)}")
+        raise ValueError(
+            f"Expected 4D tensor (C, D, H, W), got shape {tuple(volume_dc_hw.shape)}"
+        )
 
     # get grid_thw
     grid_thw = torch.tensor(
@@ -467,7 +524,9 @@ def preprocess_image(
     # This is the key optimization step.
     # The first three dimensions (nD, nH, nW) are flattened into `total_patches`.
     # The last four dimensions (C, d_p, p, p) are flattened into the feature dimension.
-    patches = patches.contiguous().view(-1, volume_dc_hw.shape[0] * depth_patch_size * patch_size * patch_size)
+    patches = patches.contiguous().view(
+        -1, volume_dc_hw.shape[0] * depth_patch_size * patch_size * patch_size
+    )
     return patches, grid_thw
     # return volume_dc_hw, grid_thw
 
@@ -482,7 +541,9 @@ def fetch_medical_volume(ele: dict) -> tuple[torch.Tensor, torch.Tensor]:
     """
     image_path = ele.get("nifti_path") or ele.get("image")
     if not isinstance(image_path, str):
-        raise ValueError("fetch_medical_volume expects 'nifti_path' or 'image' string path")
+        raise ValueError(
+            "fetch_medical_volume expects 'nifti_path' or 'image' string path"
+        )
 
     modality = ele.get("modality", "CT")
 
@@ -534,7 +595,9 @@ def fetch_medical_volume(ele: dict) -> tuple[torch.Tensor, torch.Tensor]:
     return volume_dc_hw, grid_thw
 
 
-def extract_imaging_info(conversations: list[dict] | list[list[dict]]) -> list[dict]:
+def extract_imaging_info(
+    conversations: list[dict] | list[list[dict]],
+) -> list[dict]:
     """Extract medical imaging entries from a conversation-like structure.
 
     Accepts either a list of dicts, or a list of list of dicts (messages with content).

@@ -211,3 +211,6 @@ scripts/
 
 .claude
 CLAUDE.md
+internal_examples/
+*big-query*.json
+bigquery/

@@ -9,7 +9,10 @@ if __name__ == "__main__":
     messages = [
         {
             "content": [
-                {"type": "image", "image": "dummy.nii.gz"},  # Volume size is [1, 64, 160, 160]
+                {
+                    "type": "image",
+                    "image": "dummy.nii.gz",
+                },  # Volume size is [1, 64, 160, 160]
                 {"type": "image", "image": "dummy.nii.gz"},
             ]
         }
@@ -17,10 +20,15 @@ if __name__ == "__main__":
 
     # Convert to patch tokens and grid descriptor expected by SMB‑Vision
     # Default patch size is 16 for all dimensions
-    images, grid_thw = process_mm_info(messages)  # images size is [800(400*2), 4096]
+    images, grid_thw = process_mm_info(
+        messages
+    )  # images size is [800(400*2), 4096]
 
     # Optional - Dummy images and grid_thw
-    images, grid_thw = torch.randn(800, 4096), torch.tensor([[4, 10, 10], [4, 10, 10]])
+    images, grid_thw = (
+        torch.randn(800, 4096),
+        torch.tensor([[4, 10, 10], [4, 10, 10]]),
+    )
 
     # Load backbone from HF Hub (uses this repo's modeling with trust_remote_code)
     model = AutoModel.from_pretrained(
@@ -32,6 +40,8 @@ if __name__ == "__main__":
     model.to("cuda")
 
     # Encode features
-    encoded_patches, deepstack_features = model.forward_features(images.to("cuda"), grid_thw=grid_thw.to("cuda"))
+    encoded_patches, deepstack_features = model.forward_features(
+        images.to("cuda"), grid_thw=grid_thw.to("cuda")
+    )
     print(encoded_patches.shape)
     # (800, 1152)

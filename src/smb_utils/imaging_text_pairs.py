@@ -74,7 +74,12 @@ class ImageContent:
                     encoded = base64.b64encode(f.read()).decode("utf-8")
                 ext = Path(self.image_path).suffix.lower()
                 media_type = _get_media_type(ext)
-                return {"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{encoded}"}}
+                return {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:{media_type};base64,{encoded}"
+                    },
+                }
             else:
                 return {"type": "image", "image": self.image_path}
         return {"type": "image", "image": ""}
@@ -173,9 +178,7 @@ class ImagingTextPairCreator:
         >>> conversations = creator.create_from_dataframe(df, image_dir="./images")
     """
 
-    DEFAULT_SYSTEM_PROMPT = (
-        "You are an expert radiologist providing accurate and detailed impressions of medical imaging studies."
-    )
+    DEFAULT_SYSTEM_PROMPT = "You are an expert radiologist providing accurate and detailed impressions of medical imaging studies."
 
     DEFAULT_USER_PROMPT = "Please analyze this medical image and provide your clinical impression."
 
@@ -189,8 +192,17 @@ class ImagingTextPairCreator:
         clean_impressions: bool = True,
     ):
         self.system_prompt = system_prompt
-        self.user_prompt_template = user_prompt_template or self.DEFAULT_USER_PROMPT
-        self.image_extensions = image_extensions or [".nii.gz", ".nii", ".dcm", ".png", ".jpg", ".jpeg"]
+        self.user_prompt_template = (
+            user_prompt_template or self.DEFAULT_USER_PROMPT
+        )
+        self.image_extensions = image_extensions or [
+            ".nii.gz",
+            ".nii",
+            ".dcm",
+            ".png",
+            ".jpg",
+            ".jpeg",
+        ]
         self.image_placeholder = image_placeholder
         self.include_image_paths = include_image_paths
         self.clean_impressions = clean_impressions
@@ -264,7 +276,9 @@ class ImagingTextPairCreator:
         Returns:
             Path to found image or None.
         """
-        return self.find_images_for_id(impression_id, image_dir, image_pattern, find_all=False)
+        return self.find_images_for_id(
+            impression_id, image_dir, image_pattern, find_all=False
+        )
 
     def create_conversation(
         self,
@@ -316,14 +330,18 @@ class ImagingTextPairCreator:
             user_content = self.user_prompt_template
             if image_paths:
                 user_content = f"{self.image_placeholder}\n{user_content}"
-            messages.append(ConversationMessage(role="user", content=user_content))
+            messages.append(
+                ConversationMessage(role="user", content=user_content)
+            )
 
         # Clean and add assistant response
         assistant_content = impression_text
         if self.clean_impressions:
             assistant_content = _clean_impression_text(impression_text)
 
-        messages.append(ConversationMessage(role="assistant", content=assistant_content))
+        messages.append(
+            ConversationMessage(role="assistant", content=assistant_content)
+        )
 
         # Build metadata
         metadata = {}
@@ -392,11 +410,18 @@ class ImagingTextPairCreator:
             # Finally try to find images in directory
             elif image_dir and impression_id:
                 if find_all_images:
-                    found = self.find_images_for_id(str(impression_id), image_dir, image_pattern, find_all=True)
+                    found = self.find_images_for_id(
+                        str(impression_id),
+                        image_dir,
+                        image_pattern,
+                        find_all=True,
+                    )
                     if found:
                         image_paths = [str(p) for p in found]
                 else:
-                    found = self.find_image_for_id(str(impression_id), image_dir, image_pattern)
+                    found = self.find_image_for_id(
+                        str(impression_id), image_dir, image_pattern
+                    )
                     if found:
                         image_paths = str(found)
 
@@ -405,7 +430,12 @@ class ImagingTextPairCreator:
 
             # Gather additional metadata from other columns
             additional_metadata = {}
-            excluded_cols = {impression_id_col, impression_text_col, image_path_col, image_url_col}
+            excluded_cols = {
+                impression_id_col,
+                impression_text_col,
+                image_path_col,
+                image_url_col,
+            }
             for col in df.columns:
                 if col not in excluded_cols and pd.notna(row.get(col)):
                     additional_metadata[col] = row[col]
@@ -414,7 +444,9 @@ class ImagingTextPairCreator:
                 impression_text=str(impression_text),
                 image_path=image_paths,
                 impression_id=str(impression_id) if impression_id else None,
-                additional_metadata=additional_metadata if additional_metadata else None,
+                additional_metadata=additional_metadata
+                if additional_metadata
+                else None,
                 use_multimodal_format=use_multimodal_format,
             )
             conversations.append(conversation)
@@ -529,7 +561,9 @@ def convert_impressions_to_conversations(
     elif output_format == "dict":
         return [conv.to_dict(include_metadata) for conv in conversations]
     elif output_format == "jsonl":
-        lines = [conv.to_jsonl_line(include_metadata) for conv in conversations]
+        lines = [
+            conv.to_jsonl_line(include_metadata) for conv in conversations
+        ]
         return "\n".join(lines)
     else:
         raise ValueError(f"Unknown output_format: {output_format}")
@@ -747,9 +781,7 @@ def create_ct_impression_pairs(
         "You are an expert radiologist specializing in CT imaging. "
         "Analyze the provided CT scan and provide a detailed clinical impression."
     )
-    default_user = (
-        "Please review this CT scan and provide your clinical impression, including any significant findings."
-    )
+    default_user = "Please review this CT scan and provide your clinical impression, including any significant findings."
 
     return create_imaging_text_pairs(
         impressions_csv,

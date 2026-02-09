@@ -79,18 +79,6 @@ def _require_monai():
         ) from e
 
 
-class PermuteImage(_require_monai().MapTransform):
-    def __init__(self, keys=["image"], allow_missing_keys=False):
-        super().__init__(keys, allow_missing_keys)
-
-    def __call__(self, data):
-        # ensure the image only has one channel
-        if data["image"].shape[0] != 1:
-            data["image"] = data["image"][0:1]
-        data["image"] = data["image"].permute(0, 3, 1, 2)  # (C, D, H, W)
-        return data
-
-
 def _get_base_transforms(
     spatial_size: tuple[int, int, int],
     patch_size: int,
@@ -102,6 +90,17 @@ def _get_base_transforms(
 ):
     """Refactored base transform builder."""
     t = _require_monai()
+
+    class PermuteImage(t.MapTransform):
+        def __init__(self, keys=["image"], allow_missing_keys=False):
+            super().__init__(keys, allow_missing_keys)
+
+        def __call__(self, data):
+            # ensure the image only has one channel
+            if data["image"].shape[0] != 1:
+                data["image"] = data["image"][0:1]
+            data["image"] = data["image"].permute(0, 3, 1, 2)  # (C, D, H, W)
+            return data
 
     transforms_list = [
         t.LoadImaged(keys=["image"], reader=reader, ensure_channel_first=True),

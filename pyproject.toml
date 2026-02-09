@@ -12,12 +12,16 @@ dependencies = [
     "boto3",
     "packaging",
     "python-dotenv",
-    "monai[all]>=1.5.0",
-    "nibabel>=5.3.0",
-    "pydicom>=2.4.0",
     "transformers>=4.51.0",
     "google-cloud-bigquery>=3.20.0",
     "db-dtypes>=1.2.0",
+]
+
+[project.optional-dependencies]
+imaging = [
+    "monai[all]>=1.5.0",
+    "nibabel>=5.3.0",
+    "pydicom>=2.4.0",
 ]
 readme = "README.md"
 requires-python = ">= 3.11"

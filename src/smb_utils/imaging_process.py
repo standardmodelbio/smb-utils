@@ -443,98 +443,115 @@ def preprocess_image(
     """Load and preprocess a medical image file to VJEPA2-ready shape [1, C, D, H, W].
 
     Supported modalities: CT, MRI, PET, XRAY, ULTRASOUND.
+
+    If image_path is a remote S3/R2 URL (s3:// or r2://), the file is
+    downloaded to a temporary directory that is cleaned up automatically.
     """
     modality = modality.upper()
     if modality not in _MODALITY_CONFIGS:
         raise ValueError(f"Unsupported modality: {modality}")
 
-    reader = (
-        "ITKReader"
-        if os.path.isdir(image_path)
-        else "NibabelReader"
-        if image_path.endswith(".nii.gz")
-        else "ITKReader"
-    )
-
-    (
-        transform_fn,
-        default_spatial,
-        default_pixdim,
-        default_a_min,
-        default_a_max,
-        default_b_min,
-        default_b_max,
-        uses_intensity,
-    ) = _MODALITY_CONFIGS[modality]
-
-    spatial_size = spatial_size or default_spatial
-    pixdim = pixdim or default_pixdim
-
-    if uses_intensity:
-        a_min = a_min if a_min is not None else default_a_min
-        a_max = a_max if a_max is not None else default_a_max
-        b_min = b_min if b_min is not None else default_b_min
-        b_max = b_max if b_max is not None else default_b_max
-        transforms = transform_fn(
-            spatial_size=spatial_size,
-            pixdim=pixdim,
-            a_min=a_min,
-            a_max=a_max,
-            b_min=b_min,
-            b_max=b_max,
-            reader=reader,
-        )
-    else:
-        # MRI uses percentile-based scaling, not intensity range
-        transforms = transform_fn(
-            spatial_size=spatial_size, pixdim=pixdim, reader=reader
+    # Download remote files to a temp directory if needed
+    temp_dir_context = None
+    if not os.path.exists(image_path):
+        temp_dir_context = tempfile.TemporaryDirectory()
+        image_path = download_medical_image(
+            image_path, temp_dir_context.name
         )
 
-    data_dict = {"image": image_path}
-    transformed = transforms(data_dict)
-    volume_dc_hw = transformed["image"]  # (C, D, H, W)
-    if volume_dc_hw.dim() != 4:
-        raise ValueError(
-            f"Expected 4D tensor (C, D, H, W), got shape {tuple(volume_dc_hw.shape)}"
+    try:
+        reader = (
+            "ITKReader"
+            if os.path.isdir(image_path)
+            else "NibabelReader"
+            if image_path.endswith(".nii.gz")
+            else "ITKReader"
         )
 
-    # get grid_thw
-    grid_thw = torch.tensor(
-        [
-            volume_dc_hw.shape[1] // depth_patch_size,
-            volume_dc_hw.shape[2] // patch_size,
-            volume_dc_hw.shape[3] // patch_size,
-        ]
-    )
+        (
+            transform_fn,
+            default_spatial,
+            default_pixdim,
+            default_a_min,
+            default_a_max,
+            default_b_min,
+            default_b_max,
+            uses_intensity,
+        ) = _MODALITY_CONFIGS[modality]
 
-    # 1. Chain unfold calls for a cleaner look
-    patches = (
-        volume_dc_hw.unfold(1, depth_patch_size, depth_patch_size)
-        .unfold(2, patch_size, patch_size)
-        .unfold(3, patch_size, patch_size)
-    )
+        spatial_size = spatial_size or default_spatial
+        pixdim = pixdim or default_pixdim
 
-    # 2. Permute to group grid dimensions and patch dimensions separately
-    # Initial shape: (C, nD, nH, nW, d_p, p, p)
-    # Target shape:  (nD, nH, nW, C, d_p, p, p)
-    patches = patches.permute(1, 2, 3, 0, 4, 5, 6)
+        if uses_intensity:
+            a_min = a_min if a_min is not None else default_a_min
+            a_max = a_max if a_max is not None else default_a_max
+            b_min = b_min if b_min is not None else default_b_min
+            b_max = b_max if b_max is not None else default_b_max
+            transforms = transform_fn(
+                spatial_size=spatial_size,
+                pixdim=pixdim,
+                a_min=a_min,
+                a_max=a_max,
+                b_min=b_min,
+                b_max=b_max,
+                reader=reader,
+            )
+        else:
+            # MRI uses percentile-based scaling, not intensity range
+            transforms = transform_fn(
+                spatial_size=spatial_size, pixdim=pixdim, reader=reader
+            )
 
-    # 3. Explicitly create a contiguous tensor, then flatten
-    # This is the key optimization step.
-    # The first three dimensions (nD, nH, nW) are flattened into `total_patches`.
-    # The last four dimensions (C, d_p, p, p) are flattened into the feature dimension.
-    patches = patches.contiguous().view(
-        -1, volume_dc_hw.shape[0] * depth_patch_size * patch_size * patch_size
-    )
-    return patches, grid_thw
-    # return volume_dc_hw, grid_thw
+        data_dict = {"image": image_path}
+        transformed = transforms(data_dict)
+        volume_dc_hw = transformed["image"]  # (C, D, H, W)
+        if volume_dc_hw.dim() != 4:
+            raise ValueError(
+                f"Expected 4D tensor (C, D, H, W), got shape {tuple(volume_dc_hw.shape)}"
+            )
+
+        # get grid_thw
+        grid_thw = torch.tensor(
+            [
+                volume_dc_hw.shape[1] // depth_patch_size,
+                volume_dc_hw.shape[2] // patch_size,
+                volume_dc_hw.shape[3] // patch_size,
+            ]
+        )
+
+        # 1. Chain unfold calls for a cleaner look
+        patches = (
+            volume_dc_hw.unfold(1, depth_patch_size, depth_patch_size)
+            .unfold(2, patch_size, patch_size)
+            .unfold(3, patch_size, patch_size)
+        )
+
+        # 2. Permute to group grid dimensions and patch dimensions separately
+        # Initial shape: (C, nD, nH, nW, d_p, p, p)
+        # Target shape:  (nD, nH, nW, C, d_p, p, p)
+        patches = patches.permute(1, 2, 3, 0, 4, 5, 6)
+
+        # 3. Explicitly create a contiguous tensor, then flatten
+        # The first three dimensions (nD, nH, nW) are flattened into `total_patches`.
+        # The last four dimensions (C, d_p, p, p) are flattened into the feature dimension.
+        patches = patches.contiguous().view(
+            -1,
+            volume_dc_hw.shape[0]
+            * depth_patch_size
+            * patch_size
+            * patch_size,
+        )
+        return patches, grid_thw
+    finally:
+        if temp_dir_context:
+            temp_dir_context.cleanup()
 
 
 def fetch_medical_volume(ele: dict) -> tuple[torch.Tensor, torch.Tensor]:
-    """Convenience wrapper to preprocess medical volumes.
+    """Convenience wrapper that unpacks a dict and calls preprocess_image.
 
     Supported keys:
-      - "nifti_path" or "image": path to image file
+      - "nifti_path" or "image": path to image file (local or s3/r2 URL)
       - "modality": CT, MRI, PET, XRAY, ULTRASOUND (default: CT)
       - Optional overrides: spatial_size, pixdim, a_min, a_max, b_min, b_max
     """
@@ -546,52 +563,27 @@ def fetch_medical_volume(ele: dict) -> tuple[torch.Tensor, torch.Tensor]:
 
     modality = ele.get("modality", "CT")
 
-    # helper to parse tuple or None
-    def get_tuple(key, default):
+    def get_tuple(key):
         val = ele.get(key)
-        return tuple(val) if val else default
-
-    spatial_size = get_tuple("spatial_size", None)
-    pixdim = get_tuple("pixdim", None)
+        return tuple(val) if val else None
 
     a_min = ele.get("a_min")
     a_max = ele.get("a_max")
     b_min = ele.get("b_min")
     b_max = ele.get("b_max")
 
-    # Cast to float only if they are not None
-    a_min = float(a_min) if a_min is not None else None
-    a_max = float(a_max) if a_max is not None else None
-    b_min = float(b_min) if b_min is not None else None
-    b_max = float(b_max) if b_max is not None else None
-
-    depth_patch_size = int(ele.get("depth_patch_size", DEPTH_PATCH_SIZE))
-    patch_size = int(ele.get("patch_size", PATCH_SIZE))
-
-    # download file if it is not a local path
-    temp_dir_context = None
-    if not os.path.exists(image_path):
-        temp_dir_context = tempfile.TemporaryDirectory()
-        image_path = download_medical_image(image_path, temp_dir_context.name)
-
-    try:
-        volume_dc_hw, grid_thw = preprocess_image(
-            image_path=image_path,
-            modality=modality,
-            spatial_size=spatial_size,
-            pixdim=pixdim,
-            a_min=a_min,
-            a_max=a_max,
-            b_min=b_min,
-            b_max=b_max,
-            depth_patch_size=depth_patch_size,
-            patch_size=patch_size,
-        )
-    finally:
-        if temp_dir_context:
-            temp_dir_context.cleanup()
-
-    return volume_dc_hw, grid_thw
+    return preprocess_image(
+        image_path=image_path,
+        modality=modality,
+        spatial_size=get_tuple("spatial_size"),
+        pixdim=get_tuple("pixdim"),
+        a_min=float(a_min) if a_min is not None else None,
+        a_max=float(a_max) if a_max is not None else None,
+        b_min=float(b_min) if b_min is not None else None,
+        b_max=float(b_max) if b_max is not None else None,
+        depth_patch_size=int(ele.get("depth_patch_size", DEPTH_PATCH_SIZE)),
+        patch_size=int(ele.get("patch_size", PATCH_SIZE)),
+    )
 
 
 def extract_imaging_info(
